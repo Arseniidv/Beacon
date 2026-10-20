@@ -1,43 +1,169 @@
 import Foundation
 import Combine
 import SwiftUI
+import CoreLocation
+import MapKit
 
-public final class NetworkMapViewModel: ObservableObject {
+
+@available(iOS 17.0, *)
+@MainActor
+final class NetworkMapViewModel: NSObject, ObservableObject {
     // MARK: - Published State
-    @Published public private(set) var devices: [Device] = []
-    @Published public private(set) var networkEvents: [NetworkEvent] = []
-    @Published public private(set) var isLoading: Bool = false
+    @Published private(set) var networkDevices: [Device] = []
+    @Published private(set) var bluetoothDevices: [BluetoothDevice] = []
+    @Published private(set) var wifiNetworks: [WiFiNetwork] = []
+    @Published private(set) var networkEvents: [NetworkEvent] = []
+    @Published private(set) var isLoading: Bool = false
+    @Published private(set) var isScanningBluetooth: Bool = false
+    @Published private(set) var isScanningWiFi: Bool = false
+    @Published private(set) var userLocation: CLLocationCoordinate2D?
+    @Published private(set) var authorizationStatus: CLAuthorizationStatus = .notDetermined
 
     // Общая статистика подсети (для графиков)
-    @Published public private(set) var avgCpuUsage: Double = 0.0
-    @Published public private(set) var avgRamUsage: Double = 0.0
-    @Published public private(set) var networkSpeedMbps: Double = 0.0
+    @Published private(set) var avgCpuUsage: Double = 0.0
+    @Published private(set) var avgRamUsage: Double = 0.0
+    @Published private(set) var networkSpeedMbps: Double = 0.0
 
-    public let subnetRange: String = "192.168.1.0/24"
+    @Published var cameraPosition: MapCameraPosition = .region(
+        MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: 55.7558, longitude: 37.6173),
+            span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+        )
+    )
 
-    public init() {
+    let subnetRange: String = "192.168.1.0/24"
+
+    
+    private let scanBluetoothUseCase: ScanBluetoothDevicesUseCaseProtocol
+    private let scanWiFiUseCase: ScanWiFiUseCaseProtocol
+    private var cancellables = Set<AnyCancellable>()
+    private let locationManager = CLLocationManager()
+
+    init(
+        scanBluetoothUseCase: ScanBluetoothDevicesUseCaseProtocol,
+        scanWiFiUseCase: ScanWiFiUseCaseProtocol
+    ) {
+        self.scanBluetoothUseCase = scanBluetoothUseCase
+        self.scanWiFiUseCase = scanWiFiUseCase
+        super.init()
+
+        setupLocationManager()
+        setupBluetoothSubscriptions()
+        setupWiFiSubscriptions()
         loadMockData()
     }
 
     // MARK: - Public API
-    public func startNetworkScan() {
+    func startNetworkScan() {
         isLoading = true
-        // Имитация сканирования сети хелпером
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
             self?.isLoading = false
             self?.loadMockData()
         }
     }
 
-    public var totalCount: Int { devices.count }
-    public var freeCount: Int { devices.filter { $0.status == .free }.count }
-    public var busyCount: Int { devices.filter { $0.status == .busy }.count }
-    public var offlineCount: Int { devices.filter { $0.status == .offline }.count }
+    func startBluetoothScan() async {
+        let authorized = await scanBluetoothUseCase.requestAuthorization()
+        guard authorized else {
+            return
+        }
+
+        scanBluetoothUseCase.startScanning()
+    }
+
+    func stopBluetoothScan() {
+        scanBluetoothUseCase.stopScanning()
+    }
+
+    func startWiFiScan() async {
+        let authorized = await scanWiFiUseCase.requestAuthorization()
+        guard authorized else {
+            return
+        }
+
+        scanWiFiUseCase.startScanning()
+    }
+
+    func stopWiFiScanstopWiFiScan() {
+        scanWiFiUseCase.stopScanning()
+    }
+
+    private func setupWiFiSubscriptions() {
+        scanWiFiUseCase.networks
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] networks in
+                self?.wifiNetworks = networks
+            }
+            .store(in: &cancellables)
+
+        scanWiFiUseCase.isScanning
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isScanning in
+                self?.isScanningWiFi = isScanning
+            }
+            .store(in: &cancellables)
+    }
+
+    func requestLocationAuthorization() {
+        locationManager.requestWhenInUseAuthorization()
+    }
+
+    func focus(on device: BluetoothDevice) {
+        cameraPosition = .region(
+            MKCoordinateRegion(
+                center: device.coordinate.clLocationCoordinate,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            )
+        )
+    }
+
+    func centerOnUserLocation() {
+        guard let location = userLocation else {
+            requestLocationAuthorization()
+            return
+        }
+
+        cameraPosition = .region(
+            MKCoordinateRegion(
+                center: location,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            )
+        )
+    }
+
+    var totalCount: Int { networkDevices.count }
+    var freeCount: Int { networkDevices.filter { $0.status == .free }.count }
+    var busyCount: Int { networkDevices.filter { $0.status == .busy }.count }
+    var offlineCount: Int { networkDevices.filter { $0.status == .offline }.count }
+    var bluetoothCount: Int { bluetoothDevices.count }
 
     // MARK: - Private Methods
+    private func setupLocationManager() {
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+
+        // Запрашиваем авторизацию. Ответ придет асинхронно в метод делегата.
+        locationManager.requestWhenInUseAuthorization()
+    }
+
+    private func setupBluetoothSubscriptions() {
+        scanBluetoothUseCase.devices
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] devices in
+                self?.bluetoothDevices = devices
+            }
+            .store(in: &cancellables)
+
+        scanBluetoothUseCase.isScanning
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isScanning in
+                self?.isScanningBluetooth = isScanning
+            }
+            .store(in: &cancellables)
+    }
+
     private func loadMockData() {
-        // Подгружаем устройства согласно вашей структуре Device
-        self.devices = [
+        self.networkDevices = [
             Device(
                 name: "Router",
                 ip: "192.168.1.1",
@@ -53,13 +179,11 @@ public final class NetworkMapViewModel: ObservableObject {
             Device(name: "PC-06-TEST", ip: "192.168.1.15", macAddress: "00:18:44:11:3A:C2", status: .free, ping: 2, cpuUsage: 18, ramUsage: 34)
         ]
 
-        // Расчет средних метрик для графиков подсети
-        let activeDevices = devices.filter { $0.status != .offline }
+        let activeDevices = networkDevices.filter { $0.status != .offline }
         self.avgCpuUsage = activeDevices.compactMap { $0.cpuUsage }.reduce(0, +) / Double(activeDevices.count)
         self.avgRamUsage = activeDevices.compactMap { $0.ramUsage }.reduce(0, +) / Double(activeDevices.count)
-        self.networkSpeedMbps = 120.0 // Пример константной текущей утилизации канала
+        self.networkSpeedMbps = 120.0
 
-        // Логи последних событий
         self.networkEvents = [
             NetworkEvent(time: "14:28", type: .scanCompleted, message: "Сканирование сети завершено. Найдено 52 устройства (28 свободных)"),
             NetworkEvent(time: "14:17", type: .userLeft, message: "PC-01-ADMIN стал свободен. Пользователь вышел из системы"),
@@ -69,14 +193,58 @@ public final class NetworkMapViewModel: ObservableObject {
     }
 }
 
-// MARK: - Supporting Presentation Models
-public struct NetworkEvent: Identifiable {
-    public let id = UUID()
-    public let time: String
-    public let type: EventType
-    public let message: String
 
-    public enum EventType {
+// MARK: - CLLocationManagerDelegate
+@available(iOS 17.0, *)
+extension NetworkMapViewModel: CLLocationManagerDelegate {
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        let status = manager.authorizationStatus
+        if #available(iOS 17.0, *) {
+            self.authorizationStatus = status
+        } else {
+                // Fallback on earlier versions
+        } // Обновляем SwiftUI состояние
+
+        switch status {
+        case .authorizedWhenInUse, .authorizedAlways:
+            // Разрешение получено, теперь можно безопасно запускать обновление
+            manager.startUpdatingLocation()
+
+        case .denied, .restricted:
+            // Пользователь отклонил запрос
+            print("Доступ к геолокации запрещен.")
+
+        case .notDetermined:
+            // Статус еще не определен, ждем выбора пользователя
+            break
+
+        @unknown default:
+            break
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        // Извлекаем последние актуальные координаты
+        guard let location = locations.last else { return }
+
+        // Сохраняем в переменную состояния для отображения на карте
+        self.userLocation = location.coordinate
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("Ошибка получения локации: \(error.localizedDescription)")
+    }
+}
+
+// MARK: - Supporting Presentation Models
+struct NetworkEvent: Identifiable {
+    let id = UUID()
+    let time: String
+    let type: EventType
+    let message: String
+
+    enum EventType {
         case scanCompleted, userLeft, userJoined, timeout
 
         var iconName: String {

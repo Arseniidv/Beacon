@@ -3,11 +3,18 @@ import SwiftUI
 struct PrimaryButton: View {
     let title: String
     let icon: String?
+    let isEnabled: Bool
     let action: () -> Void
 
-    init(title: String, icon: String? = nil, action: @escaping () -> Void) {
+    init(
+        title: String,
+        icon: String? = nil,
+        isEnabled: Bool = true,
+        action: @escaping () -> Void
+    ) {
         self.title = title
         self.icon = icon
+        self.isEnabled = isEnabled
         self.action = action
     }
 
@@ -26,7 +33,9 @@ struct PrimaryButton: View {
             .padding(AppSpacing.md)
             .background(AppColors.accentPrimary)
             .cornerRadius(AppRadius.md)
+            .opacity(isEnabled ? 1 : 0.55)
         }
+        .disabled(!isEnabled)
         .buttonStyle(PlainButtonStyle())
     }
 }

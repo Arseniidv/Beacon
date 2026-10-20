@@ -1,5 +1,6 @@
 import SwiftUI
 
+@available(iOS 17.0, *)
 struct ContentView: View {
     @StateObject private var coordinator = TabCoordinator()
     var body: some View {
@@ -13,7 +14,7 @@ struct ContentView: View {
     @ViewBuilder
     private var iosContentView: some View {
         TabView(selection: $coordinator.selectedTab) {
-            ForEach(AppTab.allCases, id: \.self) { tab in
+            ForEach(coordinator.availableTabs, id: \.self) { tab in
                 NavigationStack {
                     coordinator.tabView(for: tab)
                         .navigationDestination(for: Device.self) { device in
@@ -34,7 +35,7 @@ struct ContentView: View {
     private var macContentView: some View {
         NavigationSplitView {
             List(selection: $coordinator.selectedTab) {
-                ForEach(AppTab.allCases, id: \.self) { tab in
+                ForEach(coordinator.availableTabs, id: \.self) { tab in
                     Label(tab.rawValue, systemImage: tab.icon)
                         .tag(tab)
                 }
@@ -55,5 +56,13 @@ struct ContentView: View {
 }
 
 #Preview {
-    ContentView()
+    func makeView() -> AnyView {
+        guard #available(iOS 17.0, *) else {
+            return AnyView(Text("Требуется IOS 17 или новее"))
+        }
+        let mainView = Text("Экран для iOS 17+")
+        return AnyView(mainView)
+    }
+
+    return makeView()
 }

@@ -7,7 +7,7 @@ protocol ScanNetworkUseCaseProtocol {
 final class ScanNetworkUseCase: ScanNetworkUseCaseProtocol {
     private let repository: DeviceRepositoryProtocol
 
-    nonisolated init(repository: DeviceRepositoryProtocol) {
+    init(repository: DeviceRepositoryProtocol) {
         self.repository = repository
     }
 

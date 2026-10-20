@@ -4,7 +4,7 @@ struct SecondaryButton: View {
     let title: String
     let icon: String?
     let action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
             HStack(spacing: AppSpacing.xs) {
@@ -14,16 +14,20 @@ struct SecondaryButton: View {
                 Text(title)
                     .font(AppTypography.bodyStrong)
             }
-            .foregroundStyle(AppColors.textPrimary)
+            .foregroundStyle(AppColors.textPrimary) // Чистый вызов без скобок
             .frame(maxWidth: .infinity)
             .padding(.vertical, AppSpacing.sm)
-            .background(AppColors.backgroundElevated)
+            // Исправленный правильный порядок скругления фона:
+            .background(
+                RoundedRectangle(cornerRadius: AppRadius.md)
+                    .fill(AppColors.backgroundElevated)
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: AppRadius.md)
                     .stroke(AppColors.borderSubtle, lineWidth: 1)
             )
-            .cornerRadius(AppRadius.md)
         }
+        .buttonStyle(.plain)
     }
 }
 

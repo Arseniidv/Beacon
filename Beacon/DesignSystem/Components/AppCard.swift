@@ -5,7 +5,9 @@ struct AppCard<Content: View>: View {
     private let tint: Color?
     private let content: Content
 
-    init(tint: Color? = nil, @ViewBuilder content: () -> Content) {
+    init(
+        tint: Color? = nil, @ViewBuilder content: () -> Content
+    ) {
         self.tint = tint
         self.content = content()
     }
@@ -28,3 +30,5 @@ struct AppCard<Content: View>: View {
             )
     }
 }
+
+

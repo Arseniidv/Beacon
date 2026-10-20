@@ -92,11 +92,11 @@ struct DashboardView: View {
                         .foregroundStyle(AppColors.textPrimary)
                     
                     HStack(spacing: AppSpacing.xs) {
-                        Text(viewModel.summary?.currentSubnet ?? "192.168.1.0/24")
+                        Text("Bluetooth")
                             .font(AppTypography.bodyStrong)
                             .foregroundStyle(AppColors.textPrimary)
                         
-                        Text("\(viewModel.summary?.totalDevices ?? 52) устройств, 4 подсети")
+                        Text("\(viewModel.bluetoothDevices.count) устройств по сигналу")
                             .font(AppTypography.body)
                             .foregroundStyle(AppColors.textSecondary)
                     }
@@ -104,15 +104,33 @@ struct DashboardView: View {
                 
                 Spacer()
                 
-                Button("Изменить") {
-                    
+                if viewModel.isScanningBluetooth {
+                    HStack(spacing: AppSpacing.xs) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Сканирование")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.accentCyan)
+                    }
                 }
-                .font(AppTypography.bodyStrong)
-                .foregroundStyle(AppColors.accentPrimary)
             }
             
-            PrimaryButton(title: "Сканировать сеть", icon: "magnifyingglass") {
-                
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+                    .font(AppTypography.caption)
+                    .foregroundStyle(AppColors.statusDanger)
+            }
+
+            if viewModel.isScanningBluetooth {
+                PrimaryButton(title: "Остановить сканирование", icon: "stop.circle") {
+                    viewModel.stopBluetoothScan()
+                }
+            } else {
+                PrimaryButton(title: "Сканировать", icon: "antenna.radiowaves.left.and.right") {
+                    Task {
+                        await viewModel.startBluetoothScan()
+                    }
+                }
             }
             
             if let lastScan = viewModel.summary?.lastScanDate {
@@ -145,7 +163,7 @@ struct DashboardView: View {
             HStack(spacing: AppSpacing.lg) {
                 statusLegendItem(title: "Свободны", count: viewModel.summary?.freeDevices ?? 28, color: AppColors.statusSuccess)
                 statusLegendItem(title: "Заняты", count: viewModel.summary?.busyDevices ?? 18, color: AppColors.statusDanger)
-                statusLegendItem(title: "Оффлайн", count: viewModel.summary?.offlineDevices ?? 6, color: AppColors.statusOffline)
+                statusLegendItem(title: "Недоступны", count: viewModel.summary?.offlineDevices ?? 6, color: AppColors.statusOffline)
             }
         }
         .padding(AppSpacing.cardPadding)

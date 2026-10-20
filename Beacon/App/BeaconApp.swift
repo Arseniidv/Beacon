@@ -1,5 +1,6 @@
 import SwiftUI
 
+@available(iOS 17.0, *)
 @main
 struct BeaconApp: App {
     @StateObject private var appCoordinator = AppCoordinator()
@@ -8,12 +9,14 @@ struct BeaconApp: App {
         #if os(macOS)
         WindowGroup {
             appCoordinator.root()
+                .appTheme()
                 .frame(minWidth: AppLayout.minWindowSize.width, minHeight: AppLayout.minWindowSize.height)
         }
         .windowStyle(.hiddenTitleBar)
         #else
         WindowGroup {
             appCoordinator.root()
+                .appTheme()
         }
         #endif
     }

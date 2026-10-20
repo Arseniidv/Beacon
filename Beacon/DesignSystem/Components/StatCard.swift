@@ -33,8 +33,10 @@ struct StatCard: View {
                 .foregroundStyle(AppColors.textSecondary)
         }
         .padding(AppSpacing.cardPadding)
-        .background(AppColors.backgroundCard)
-        .cornerRadius(AppRadius.lg)
+        .background(
+            RoundedRectangle(cornerRadius: AppRadius.lg)
+                .fill(AppColors.backgroundCard)
+        )
     }
 }
 
@@ -47,4 +49,6 @@ struct StatCard: View {
         changeColor: AppColors.statusSuccess,
         icon: "checkmark.circle"
     )
+    .padding()
+    .background(AppColors.backgroundApp)
 }

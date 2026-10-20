@@ -90,6 +90,25 @@ struct DeviceCard: View {
             storage: "1 TB NVMe",
             networkAdapter: "Ethernet"
         ))
+
+        DeviceCard(device: Device(
+            id: UUID(),
+            name: "Offline Device",
+            ip: "192.168.1.12",
+            macAddress: "00:1A:2B:3C:4D:60",
+            status: .offline,
+            ping: nil,
+            currentUser: nil,
+            cpuUsage: nil,
+            ramUsage: nil,
+            diskUsage: nil,
+            gpu: nil,
+            uptime: nil,
+            os: nil,
+            processor: nil,
+            storage: nil,
+            networkAdapter: nil
+        ))
     }
     .padding()
     .background(AppColors.backgroundApp)

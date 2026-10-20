@@ -1,13 +1,13 @@
 import Foundation
 import SwiftUI
 
-enum DeviceStatus:String,Codable,Hashable{
+public enum DeviceStatus: String, Codable, Hashable {
     case free = "Свободен"
-    case busy = "Занятой"
+    case busy = "Занят"
     case offline = "Недоступен"
 
-    public var color:Color{
-        switch self{
+    public var color: Color {
+        switch self {
         case .free:
             return AppColors.statusSuccess
         case .busy:

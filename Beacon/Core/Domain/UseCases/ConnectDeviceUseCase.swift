@@ -7,7 +7,7 @@ protocol ConnectDeviceUseCaseProtocol {
 final class ConnectDeviceUseCase: ConnectDeviceUseCaseProtocol {
     private let repository: DeviceRepositoryProtocol
 
-    nonisolated init(repository: DeviceRepositoryProtocol) {
+    init(repository: DeviceRepositoryProtocol) {
         self.repository = repository
     }
 
