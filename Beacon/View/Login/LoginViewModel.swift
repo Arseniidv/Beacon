@@ -18,15 +18,18 @@ final class AuthViewModel: ObservableObject {
 
     private let loginUseCase: LoginUseCaseProtocol
     private let registerUseCase: RegisterUseCaseProtocol
+    private let googleSignInUseCase: SignInWithGoogleUseCaseProtocol
     private let session: AuthSessionStore
 
     init(
         loginUseCase: LoginUseCaseProtocol,
         registerUseCase: RegisterUseCaseProtocol,
+        googleSignInUseCase: SignInWithGoogleUseCaseProtocol,
         session: AuthSessionStore
     ) {
         self.loginUseCase = loginUseCase
         self.registerUseCase = registerUseCase
+        self.googleSignInUseCase = googleSignInUseCase
         self.session = session
     }
 
@@ -64,8 +67,21 @@ final class AuthViewModel: ObservableObject {
     }
 
     func authenticateWithGoogle() {
-        // TODO: Implement Google Sign-In
-        errorMessage = "Google Sign-In ещё не реализован"
+        guard !isLoading else { return }
+        errorMessage = nil
+        isLoading = true
+
+        Task {
+            do {
+                let user = try await googleSignInUseCase.execute()
+                session.apply(user)
+            } catch GoogleAuthError.canceled {
+                // Пользователь сам закрыл окно входа — не показываем ошибку.
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+            isLoading = false
+        }
     }
 
     func authenticateWithApple() {

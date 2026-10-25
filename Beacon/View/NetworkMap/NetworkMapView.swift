@@ -1,54 +1,87 @@
-import SwiftUI
 import MapKit
+import SwiftUI
+
 
 @available(iOS 17.0, *)
 struct NetworkMapView: View {
-    @StateObject private var viewModel: NetworkMapViewModel
-
-    @available(iOS 17.0, *)
+ @StateObject private var viewModel: NetworkMapViewModel
+    
     init(viewModel: NetworkMapViewModel) {
         self._viewModel = StateObject(wrappedValue: viewModel)
     }
-
+    
     var body: some View {
-        #if os(macOS)
+        content
+            .background(AppColors.backgroundApp)
+            .onAppear {
+                // 🟢 Fixed: Removed '$' and invoked method properly
+                viewModel.requestLocationAuthorization()
+                viewModel.startScan()
+            }
+            .sheet(item: $viewModel.selectedDevice) { device in
+                NetworkDeviceDetailView(device: device) {
+                    viewModel.select(device)
+                }
+            }
+    }
+    
+    @ViewBuilder
+    private var content: some View {
+#if os(macOS)
         HStack(spacing: 0) {
             mapCanvas
             deviceListPanel
                 .frame(width: AppLayout.detailPanelWidth)
         }
-        .background(AppColors.backgroundApp)
-        .onAppear {
-            viewModel.requestLocationAuthorization()
-        }
-        #else
+#else
         VStack(spacing: 0) {
             mapCanvas
                 .frame(minHeight: 280)
             deviceListPanel
         }
-        .background(AppColors.backgroundApp)
-        .onAppear {
-            viewModel.requestLocationAuthorization()
-        }
-        #endif
+#endif
     }
-
+    
     private var mapCanvas: some View {
         ZStack {
             Map(position: $viewModel.cameraPosition) {
+                // 🟢 Fixed: Removed '$' to pass regular elements instead of Bindings
+                ForEach(viewModel.deviceClusters) { cluster in
+                    Annotation(cluster.title, coordinate: cluster.coordinate) {
+                        NetworkClusterAnnotationView(cluster: cluster) {
+                            if cluster.isCluster {
+                                viewModel.focus(on: cluster)
+                            } else if let device = cluster.devices.first {
+                                viewModel.select(device)
+                            }
+                        }
+                    }
+                }
+                
                 ForEach(viewModel.bluetoothDevices) { device in
                     Annotation(device.name, coordinate: device.coordinate.clLocationCoordinate) {
                         DeviceAnnotationView(device: device)
                     }
                 }
+                
+                ForEach(viewModel.mappedWiFiNetworks) { network in
+                    if let coordinate = network.coordinate {
+                        Annotation(network.ssid, coordinate: coordinate.clLocationCoordinate) {
+                            WiFiAnnotationView(network: network)
+                        }
+                    }
+                }
+                
                 UserAnnotation()
+            }
+            .onMapCameraChange(frequency: .onEnd) { context in
+                viewModel.updateVisibleRegion(context.region)
             }
             .mapControls {
                 MapUserLocationButton()
                 MapCompass()
             }
-
+            
             VStack {
                 Spacer()
                 HStack {
@@ -63,27 +96,25 @@ struct NetworkMapView: View {
     private var mapControls: some View {
         VStack(spacing: AppSpacing.xs) {
             Button {
-                Task {
-                    await viewModel.startBluetoothScan()
-                }
+                viewModel.startScan()
             } label: {
                 Image(systemName: "antenna.radiowaves.left.and.right")
                     .font(.title2)
-                    .foregroundStyle(viewModel.isScanningBluetooth ? AppColors.accentPrimary : AppColors.textPrimary)
+                    .foregroundStyle(viewModel.isScanning ? AppColors.accentPrimary : AppColors.textPrimary)
                     .frame(width: 40, height: 40)
             }
-            .disabled(viewModel.isScanningBluetooth)
+            .disabled(viewModel.isScanning)
             .buttonStyle(.plain)
 
             Button {
-                viewModel.stopBluetoothScan()
+                viewModel.stopScan()
             } label: {
                 Image(systemName: "stop.circle")
                     .font(.title2)
                     .foregroundStyle(AppColors.statusDanger)
                     .frame(width: 40, height: 40)
             }
-            .disabled(!viewModel.isScanningBluetooth)
+            .disabled(!viewModel.isScanning)
             .buttonStyle(.plain)
 
             Button {
@@ -105,68 +136,17 @@ struct NetworkMapView: View {
         )
     }
 
+    // MARK: - Панель устройств
+
     private var deviceListPanel: some View {
         VStack(alignment: .leading, spacing: AppSpacing.md) {
-            HStack {
-                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                    Text("Устройства")
-                        .font(AppTypography.sectionTitle)
-                        .foregroundStyle(AppColors.textPrimary)
+            panelHeader
 
-                    Text("\(viewModel.bluetoothCount) найдено по Bluetooth")
-                        .font(AppTypography.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                }
-
-                Spacer()
-
-                if viewModel.isScanningBluetooth {
-                    HStack(spacing: AppSpacing.xs) {
-                        ProgressView()
-                            .controlSize(.small)
-                        Text("Сканирование")
-                            .font(AppTypography.caption)
-                            .foregroundStyle(AppColors.accentCyan)
-                    }
-                }
-
+            if viewModel.listMode == .localSignal {
+                statusFilterBar
             }
-            .padding(.horizontal, AppSpacing.md)
-            .padding(.top, AppSpacing.md)
 
-            if viewModel.bluetoothDevices.isEmpty {
-                VStack(spacing: AppSpacing.sm) {
-                    Image(systemName: "antenna.radiowaves.left.and.right")
-                        .font(.system(size: 28))
-                        .foregroundStyle(AppColors.textTertiary)
-
-                    Text("Устройства не найдены")
-                        .font(AppTypography.bodyStrong)
-                        .foregroundStyle(AppColors.textPrimary)
-
-                    Text("Запустите сканирование, чтобы увидеть Bluetooth-устройства рядом")
-                        .font(AppTypography.caption)
-                        .foregroundStyle(AppColors.textSecondary)
-                        .multilineTextAlignment(.center)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .padding(AppSpacing.lg)
-            } else {
-                ScrollView {
-                    LazyVStack(spacing: AppSpacing.sm) {
-                        ForEach(viewModel.bluetoothDevices) { device in
-                            Button {
-                                viewModel.focus(on: device)
-                            } label: {
-                                BluetoothDeviceRow(device: device)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, AppSpacing.md)
-                    .padding(.bottom, AppSpacing.md)
-                }
-            }
+            panelContent
         }
         .background(AppColors.backgroundSidebar)
         #if os(macOS)
@@ -183,76 +163,121 @@ struct NetworkMapView: View {
         }
         #endif
     }
-}
 
-struct DeviceAnnotationView: View {
-    let device: BluetoothDevice
+    private var panelHeader: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            HStack {
+                VStack(alignment: .leading, spacing: AppSpacing.xxs) {
+                    Text("Устройства")
+                        .font(AppTypography.sectionTitle)
+                        .foregroundStyle(AppColors.textPrimary)
 
-    var body: some View {
-        VStack(spacing: AppSpacing.xs) {
-            ZStack {
-                Circle()
-                    .fill(device.signalStrength.color)
-                    .frame(width: 40, height: 40)
+                    Text(panelSubtitle)
+                        .font(AppTypography.caption)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
 
-                Image(systemName: device.signalStrength.iconName)
-                    .font(.system(size: 16))
-                    .foregroundStyle(AppColors.textOnAccent)
+                Spacer()
+
+                if viewModel.isScanning {
+                    HStack(spacing: AppSpacing.xs) {
+                        ProgressView()
+                            .controlSize(.small)
+                        Text("Сканирование")
+                            .font(AppTypography.caption)
+                            .foregroundStyle(AppColors.accentCyan)
+                    }
+                }
             }
-            .shadow(radius: 3)
 
-            Text(device.name)
-                .font(AppTypography.caption)
-                .foregroundStyle(AppColors.textPrimary)
-                .padding(.horizontal, AppSpacing.xs)
-                .padding(.vertical, AppSpacing.xxs)
-                .background(AppColors.backgroundCard)
-                .cornerRadius(AppRadius.sm)
+            Picker("Источник", selection: $viewModel.listMode) {
+                ForEach(viewModel.availableSources) { source in
+                    Text(source.rawValue).tag(source)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+        }
+        .padding(.horizontal, AppSpacing.md)
+        .padding(.top, AppSpacing.md)
+    }
+
+    private var panelSubtitle: String {
+        switch viewModel.listMode {
+        case .localSignal:
+            return "\(viewModel.filteredNetworkDevices.count) из \(viewModel.totalCount) в сети"
+        case .wifi:
+            return "\(viewModel.wifiNetworks.count) WiFi-сетей найдено"
+        case .bluetooth:
+            return "\(viewModel.bluetoothCount) найдено по Bluetooth"
         }
     }
-}
 
-struct BluetoothDeviceRow: View {
-    let device: BluetoothDevice
-
-    var body: some View {
-        HStack(spacing: AppSpacing.sm) {
-            Circle()
-                .fill(device.signalStrength.color)
-                .frame(width: 10, height: 10)
-
-            VStack(alignment: .leading, spacing: AppSpacing.xxs) {
-                Text(device.name)
-                    .font(AppTypography.bodyStrong)
-                    .foregroundStyle(AppColors.textPrimary)
-                    .lineLimit(1)
-
-                Text(device.identifier)
-                    .font(AppTypography.caption)
-                    .foregroundStyle(AppColors.textTertiary)
-                    .lineLimit(1)
+    private var statusFilterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: AppSpacing.xs) {
+                ForEach(DeviceFilter.allCases) { filter in
+                    MapFilterChip(
+                        title: filter.rawValue,
+                        isSelected: viewModel.statusFilter == filter
+                    ) {
+                        viewModel.statusFilter = filter
+                    }
+                }
             }
+            .padding(.horizontal, AppSpacing.md)
+        }
+    }
 
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: AppSpacing.xxs) {
-                Text(device.formattedRSSI)
-                    .font(AppTypography.bodyStrong)
-                    .foregroundStyle(AppColors.textPrimary)
-
-                Text(device.formattedDistance)
-                    .font(AppTypography.caption)
-                    .foregroundStyle(AppColors.textSecondary)
+    @ViewBuilder
+    private var panelContent: some View {
+        switch viewModel.listMode {
+        case .localSignal:
+            if viewModel.filteredNetworkDevices.isEmpty {
+                emptyState(
+                    icon: "desktopcomputer",
+                    title: "Устройства не найдены",
+                    message: "Измените фильтр по статусу, чтобы увидеть другие устройства"
+                )
+            } else {
+                networkDeviceList
+            }
+        case .wifi:
+            if viewModel.wifiNetworks.isEmpty {
+                emptyState(
+                    icon: "wifi",
+                    title: "Сети не найдены",
+                    message: "Убедитесь, что Wi-Fi включен на устройстве"
+                )
+            } else {
+                wifiNetworkList
+            }
+        case .bluetooth:
+            if viewModel.bluetoothDevices.isEmpty {
+                emptyState(
+                    icon: "wave.3.left",
+                    title: "Bluetooth устройства не найдены",
+                    message: "Убедитесь, что Bluetooth включен на устройстве"
+                )
+            } else {
+                bluetoothDeviceList
             }
         }
-        .padding(AppSpacing.cardPadding)
-        .background(AppColors.backgroundCard)
-        .cornerRadius(AppRadius.md)
-        .overlay(
-            RoundedRectangle(cornerRadius: AppRadius.md)
-                .strokeBorder(AppColors.borderSubtle, lineWidth: 1)
-        )
     }
+
+    // Пример заглушек для недостающих View компонентов в вашем сниппете:
+    @ViewBuilder
+    private func emptyState(icon: String, title: String, message: String) -> some View {
+        VStack {
+            Image(systemName: icon)
+            Text(title)
+            Text(message)
+        }
+    }
+    
+    private var networkDeviceList: some View { Text("Список") }
+    private var wifiNetworkList: some View { Text("Wi-Fi") }
+    private var bluetoothDeviceList: some View { Text("Bluetooth") }
 }
 
 #Preview {

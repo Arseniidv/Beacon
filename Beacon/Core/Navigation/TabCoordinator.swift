@@ -35,13 +35,26 @@ final class TabCoordinator: ObservableObject {
     @Published var navigationPath = NavigationPath()
     @Published var isAdmin: Bool = false
 
+    private var cancellables = Set<AnyCancellable>()
+
     init() {
-        checkAdminStatus()
+        apply(session: DIContainer.shared.authSession.currentUser)
+
+        DIContainer.shared.authSession.$currentUser
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] user in
+                self?.apply(session: user)
+            }
+            .store(in: &cancellables)
     }
 
-    private func checkAdminStatus() {
-        if let session = DIContainer.shared.authSession.currentUser {
-            isAdmin = session.isAdmin
+    /// Доступ в админ-панель определяется ролью текущего пользователя.
+    /// Роль может измениться во время работы (вход/выход, смена роли админом).
+    private func apply(session user: UserAccount?) {
+        isAdmin = user?.isAdmin ?? false
+
+        if !isAdmin && selectedTab == .admin {
+            selectedTab = .overview
         }
     }
 
@@ -71,13 +84,9 @@ final class TabCoordinator: ObservableObject {
         case .devices:DevicesView()
 
         case .map:
-                if #available(iOS 17.0, *) {
-                    NetworkMapView(
-                        viewModel: DIContainer.shared.makeNetworkMapViewModel()
-                    )
-                } else {
-                    Text("Карта доступна только на iOS 17.0 и выше.")
-                }
+            NetworkMapView(
+                viewModel: DIContainer.shared.makeNetworkMapViewModel()
+            )
         case .admin:
             if isAdmin {
                 AdminPanelView()

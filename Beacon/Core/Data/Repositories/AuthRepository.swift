@@ -51,6 +51,30 @@ final class AuthRepository: AuthRepositoryProtocol {
         return account
     }
 
+    /// Вход через Google. Пароль у таких аккаунтов не задаётся, поэтому
+    /// passwordHash остаётся пустым и обычный вход по паролю для них невозможен.
+    func authenticateExternal(email: String, name: String) throws -> UserAccount {
+        let normalizedEmail = Self.normalize(email)
+        var accounts = loadAccounts()
+
+        if let existing = accounts.first(where: { $0.account.email == normalizedEmail }) {
+            saveSession(userId: existing.account.id)
+            return existing.account
+        }
+
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let account = UserAccount(
+            name: trimmedName.isEmpty ? normalizedEmail : trimmedName,
+            email: normalizedEmail,
+            role: accounts.isEmpty ? "admin" : "user"
+        )
+        accounts.append(StoredAccount(account: account, passwordHash: "", salt: ""))
+        saveAccounts(accounts)
+        saveSession(userId: account.id)
+
+        return account
+    }
+
     func loadSession() -> UserAccount? {
         guard let idString = defaults.string(forKey: sessionKey),
               let id = UUID(uuidString: idString) else {
@@ -61,6 +85,34 @@ final class AuthRepository: AuthRepositoryProtocol {
 
     func clearSession() {
         defaults.removeObject(forKey: sessionKey)
+    }
+
+    func fetchAccounts() -> [UserAccount] {
+        loadAccounts().map(\.account)
+    }
+
+    func updateRole(userId: UUID, role: UserRole) -> UserAccount? {
+        var accounts = loadAccounts()
+
+        guard let index = accounts.firstIndex(where: { $0.account.id == userId }) else {
+            return nil
+        }
+
+        let stored = accounts[index]
+        let updatedAccount = UserAccount(
+            id: stored.account.id,
+            name: stored.account.name,
+            email: stored.account.email,
+            role: role.rawValue
+        )
+        accounts[index] = StoredAccount(
+            account: updatedAccount,
+            passwordHash: stored.passwordHash,
+            salt: stored.salt
+        )
+        saveAccounts(accounts)
+
+        return updatedAccount
     }
 
     private func saveSession(userId: UUID) {

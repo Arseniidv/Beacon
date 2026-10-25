@@ -5,7 +5,6 @@ import Foundation
 
 public protocol DeviceFilterProtocol {
     associatedtype DeviceType
-
     func matches(_ device: DeviceType) -> Bool
 }
 
@@ -23,16 +22,12 @@ public enum BluetoothFilter: DeviceFilterProtocol {
         switch self {
         case .all:
             return true
-
         case .byName(let name):
             return device.name.localizedCaseInsensitiveContains(name)
-
         case .byManufacturer(let manufacturer):
             return device.name.localizedCaseInsensitiveContains(manufacturer)
-
         case .bySignalStrength(let range):
             return range.contains(device.rssi)
-
         case .byConnectionStatus(let status):
             return device.connectionStatus == status
 
@@ -41,9 +36,6 @@ public enum BluetoothFilter: DeviceFilterProtocol {
         }
     }
 }
-
-// MARK: - Wi-Fi Filters
-
 public enum WiFiFilter: DeviceFilterProtocol {
     case all
     case bySSID(String)
@@ -51,26 +43,23 @@ public enum WiFiFilter: DeviceFilterProtocol {
     case byFrequency(Double)
     case bySignalStrength(ClosedRange<Int>)
     case custom((WiFiNetwork) -> Bool)
-
+    case online((WiFiNetwork)->Bool)
     public func matches(_ device: WiFiNetwork) -> Bool {
         switch self {
         case .all:
             return true
-
         case .bySSID(let ssid):
             return device.ssid.localizedCaseInsensitiveContains(ssid)
-
         case .bySecurityType(let security):
             return device.securityType == security
-
         case .byFrequency(let frequency):
             return abs(device.frequency - frequency) < 0.1
-
         case .bySignalStrength(let range):
             return range.contains(device.signalStrength)
-
         case .custom(let predicate):
             return predicate(device)
+        case .online:
+            return device.status == .free || device.status == .busy
         }
     }
 }
@@ -98,19 +87,14 @@ public enum FilterCombiner {
         }
     }
 }
-
 // MARK: - Filter Presets
-
 public enum FilterPresets {
     public static let bluetoothStrongSignal: BluetoothFilter =
         .bySignalStrength(-60...0)
-
     public static let bluetoothConnected: BluetoothFilter =
         .byConnectionStatus(.connected)
-
     public static let bluetoothAppleDevices: BluetoothFilter =
         .byManufacturer("Apple")
-
     public static let wifiOpenNetworks: WiFiFilter =
         .bySecurityType(.none)
 

@@ -1,7 +1,7 @@
 import Foundation
 
 protocol ScanNetworkUseCaseProtocol {
-    func execute(subnet: String) async throws -> [Device]
+    func execute(subnet: String, timeout: Double) async throws -> [Device]
 }
 
 final class ScanNetworkUseCase: ScanNetworkUseCaseProtocol {
@@ -11,7 +11,7 @@ final class ScanNetworkUseCase: ScanNetworkUseCaseProtocol {
         self.repository = repository
     }
 
-    func execute(subnet: String) async throws -> [Device] {
-        return try await repository.scanNetwork(subnet: subnet)
+    func execute(subnet: String, timeout: Double) async throws -> [Device] {
+        return try await repository.scanNetwork(subnet: subnet, timeout: timeout)
     }
 }

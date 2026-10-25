@@ -71,23 +71,6 @@ public struct BluetoothDevice: Identifiable, Codable, Hashable {
         }
     }
 
-    // ДИНАМИЧЕСКИЙ РАСЧЕТ ДИСТАНЦИИ (Перенесено сюда из Coordinate)
-    // Метод использует математический switch по вычисляемому свойству signalStrength
-    public var simulatedDistance: Double {
-        switch self.signalStrength {
-        case .excellent:
-            return 2.0  // Отличный сигнал — устройство рядом
-        case .good:
-            return 7.5  // Хороший сигнал — устройство в паре метров
-        case .fair:
-            return 15.0 // Средний сигнал — устройство в другой комнате
-        case .weak:
-            return 25.0 // Слабый сигнал — устройство на грани разрыва
-        case .poor:
-            return 40.0 // Ужасный сигнал — устройство очень далеко
-        }
-    }
-
     public enum SignalStrength: String, Codable {
         case excellent
         case good

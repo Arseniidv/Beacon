@@ -1,21 +1,36 @@
+
 import Foundation
 import CoreLocation
+import Network
 import NetworkExtension
 import Combine
+
+#if os(macOS)
+import CoreWLAN
+#endif
 
 @MainActor
 final class WiFiService: NSObject, WiFiServiceProtocol {
 
     // MARK: - Private Properties
+
     private var locationManager: CLLocationManager?
     private var networkMonitor: NWPathMonitor?
+    private var scanTask: Task<Void, Never>?
+    private var authorizationContinuation: CheckedContinuation<Bool, Never>?
 
     private var discoveredNetworks: [WiFiNetwork] = []
 
-    private let networksSubject = CurrentValueSubject<[WiFiNetwork], Never>([])
-    private let isScanningSubject = CurrentValueSubject<Bool, Never>(false)
+    private let networksSubject =
+        CurrentValueSubject<[WiFiNetwork], Never>([])
 
-    // MARK: - Public API (Publishers)
+    private let isScanningSubject =
+        CurrentValueSubject<Bool, Never>(false)
+
+    private var isNetworkAvailable = false
+
+    // MARK: - Public Publishers
+
     var networks: AnyPublisher<[WiFiNetwork], Never> {
         networksSubject.eraseToAnyPublisher()
     }
@@ -25,158 +40,331 @@ final class WiFiService: NSObject, WiFiServiceProtocol {
     }
 
     // MARK: - Initialization
+
     override init() {
         super.init()
+
+        #if os(iOS)
         setupLocationManager()
+        #endif
+
         setupNetworkMonitor()
     }
 
-    private func setupLocationManager() {
-        locationManager = CLLocationManager()
-        locationManager?.delegate = self
-        locationManager?.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-        locationManager?.startUpdatingLocation()
+    deinit {
+        scanTask?.cancel()
+        networkMonitor?.cancel()
     }
+
+    // MARK: - Setup
+
+    #if os(iOS)
+    private func setupLocationManager() {
+        let manager = CLLocationManager()
+        manager.delegate = self
+        manager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+        locationManager = manager
+    }
+    #endif
 
     private func setupNetworkMonitor() {
-        networkMonitor = NWPathMonitor()
-        networkMonitor?.pathUpdateHandler = { [weak self] path in
-            // Monitor network changes
-            print("Network path changed: \(path.status)")
+        let monitor = NWPathMonitor()
+
+        monitor.pathUpdateHandler = {[weak self] path in
+            guard let self else{return}
+            Task{@MainActor [weak self] in
+                self?.isNetworkAvailable = path.status == .satisfied}
         }
-        networkMonitor?.start(queue: .main)
+
+        monitor.start(queue: DispatchQueue(label: "NetPulse.WiFiMonitor"))
+        networkMonitor = monitor
     }
 
-    // MARK: - WiFiServiceProtocol Implementation
+    // MARK: - Authorization
+
     func requestAuthorization() async -> Bool {
-        guard let locationManager = locationManager else {
+        #if os(macOS)
+        // CoreWLAN does not require CLLocation authorization.
+        return true
+
+        #elseif os(iOS)
+        guard let locationManager else {
             return false
         }
 
-        locationManager.requestWhenInUseAuthorization()
+        switch locationManager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            return true
 
-        await withCheckedContinuation { continuation in
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                continuation.resume()
+        case .denied, .restricted:
+            return false
+
+        case .notDetermined:
+            return await withCheckedContinuation { continuation in
+                authorizationContinuation = continuation
+                locationManager.requestWhenInUseAuthorization()
             }
+
+        @unknown default:
+            return false
         }
 
-        return locationManager.authorizationStatus == .authorizedWhenInUse ||
-               locationManager.authorizationStatus == .authorizedAlways
+        #else
+        return false
+        #endif
     }
 
-    func startScanning() {
-        // Clear previous scan results
-        discoveredNetworks.removeAll()
-        networksSubject.send([])
-
-        // Start scanning
-        isScanningSubject.send(true)
-
-        // Simulate WiFi scanning (actual NEHotspotNetwork scanning requires entitlements)
-        simulateWiFiScan()
-    }
-
-    func stopScanning() {
-        isScanningSubject.send(false)
-    }
-
-    // MARK: - Mock WiFi Scanning
-    // Note: Real WiFi scanning requires NEHotspotNetworkHelper with special entitlements
-    // This is a simulation for demonstration purposes
-    private func simulateWiFiScan() {
-        guard let currentLocation = locationManager?.location?.coordinate else {
+    #if os(iOS)
+    private func finishAuthorization(_ granted: Bool) {
+        guard let continuation = authorizationContinuation else {
             return
         }
 
-        // Simulate discovered networks
-        let mockNetworks = createMockNetworks(at: currentLocation)
+        authorizationContinuation = nil
+        continuation.resume(returning: granted)
+    }
+    #endif
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.discoveredNetworks = mockNetworks
-            self?.networksSubject.send(mockNetworks)
-            self?.isScanningSubject.send(false)
+    // MARK: - Scanning
+
+    func startScanning() {
+        guard !isScanningSubject.value else {
+            return
+        }
+
+        scanTask?.cancel()
+        discoveredNetworks = []
+        networksSubject.send([])
+        isScanningSubject.send(true)
+
+        scanTask = Task { [weak self] in
+            guard let self else { return }
+
+            let networks = await self.performScan()
+
+            guard !Task.isCancelled else {
+                return
+            }
+
+            self.discoveredNetworks = networks
+            self.networksSubject.send(networks)
+            self.isScanningSubject.send(false)
+            self.scanTask = nil
         }
     }
 
-    private func createMockNetworks(at location: CLLocationCoordinate2D) -> [WiFiNetwork] {
-        let networkNames: [(String, String, Int, Int, Double, WiFiNetwork.SecurityType)] = [
-            ("HomeNetwork", "AC:12:34:56:78:90", -45, 6, 2.4, .wpa2),
-            ("Office_WiFi", "AC:12:34:56:78:91", -52, 11, 2.4, .wpa2Enterprise),
-            ("Guest_5G", "AC:12:34:56:78:92", -58, 36, 5.0, .wpa2),
-            ("Neighbor_Net", "AC:12:34:56:78:93", -65, 1, 2.4, .wpa3),
-            ("Coffee_Shop", "AC:12:34:56:78:94", -72, 6, 2.4, .none),
-            ("Smart_Home", "AC:12:34:56:78:95", -78, 11, 2.4, .wpa2),
-            ("IoT_Device", "AC:12:34:56:78:96", -85, 1, 2.4, .wpa)
+    func stopScanning() {
+        scanTask?.cancel()
+        scanTask = nil
+        isScanningSubject.send(false)
+    }
+
+    private func performScan() async -> [WiFiNetwork] {
+        guard !Task.isCancelled else {
+            return []
+        }
+
+        #if os(macOS)
+        return scanOnMacOS()
+
+        #elseif os(iOS)
+        guard isNetworkAvailable else {
+            return []
+        }
+
+        return await fetchCurrentNetwork()
+
+        #else
+        return []
+        #endif
+    }
+
+    // MARK: - macOS Scanning
+
+    #if os(macOS)
+
+    private func scanOnMacOS() -> [WiFiNetwork] {
+        guard let interface = CWWiFiClient.shared().interface() else {
+            print("WiFiService: Wi-Fi interface not found")
+            return []
+        }
+
+        guard interface.powerOn() else {
+            print("WiFiService: Wi-Fi is turned off")
+            return []
+        }
+
+        do {
+            let scanned = try interface.scanForNetworks(
+                withSSID: nil,
+                includeHidden: false
+            )
+
+            return scanned
+                .compactMap { Self.makeNetwork(from: $0) }
+                .sorted { $0.signalStrength > $1.signalStrength }
+
+        } catch {
+            print("WiFiService: scan failed: \(error.localizedDescription)")
+            return []
+        }
+    }
+
+    private static func makeNetwork(
+        from network: CWNetwork
+    ) -> WiFiNetwork? {
+        guard let ssid = network.ssid, !ssid.isEmpty else {
+            return nil
+        }
+
+        let rssi = network.rssiValue
+        let channel = network.wlanChannel?.channelNumber ?? 0
+
+        return WiFiNetwork(
+            ssid: ssid,
+            bssid: network.bssid ?? "",
+            signalStrength: rssi,
+            channel: channel,
+            frequency: frequency(
+                for: network.wlanChannel?.channelBand
+            ),
+            securityType: securityType(for: network),
+            distance: estimatedDistance(fromRSSI: rssi)
+        )
+    }
+
+    private static func frequency(
+        for band: CWChannelBand?
+    ) -> Double {
+        switch band {
+        case .band2GHz:
+            return 2.4
+        case .band5GHz:
+            return 5.0
+        case .band6GHz:
+            return 6.0
+        default:
+            return 0
+        }
+    }
+
+    private static func securityType(
+        for network: CWNetwork
+    ) -> WiFiNetwork.SecurityType {
+        if network.supportsSecurity(.wpa3Enterprise) {
+            return .wpa3Enterprise
+        }
+
+        if network.supportsSecurity(.wpa3Personal) {
+            return .wpa3
+        }
+
+        if network.supportsSecurity(.wpa2Enterprise) {
+            return .wpa2Enterprise
+        }
+
+        if network.supportsSecurity(.wpa2Personal) {
+            return .wpa2
+        }
+
+        if network.supportsSecurity(.wpaPersonal)
+            || network.supportsSecurity(.wpaPersonalMixed) {
+            return .wpa
+        }
+
+        if network.supportsSecurity(.WEP) {
+            return .wep
+        }
+
+        if network.supportsSecurity(.none) {
+            return .none
+        }
+
+        return .unknown
+    }
+
+    #endif
+
+    // MARK: - iOS Current Network
+
+    #if os(iOS)
+
+    private func fetchCurrentNetwork() async -> [WiFiNetwork] {
+        guard !Task.isCancelled else {
+            return []
+        }
+
+        let current: NEHotspotNetwork? =
+            await withCheckedContinuation { continuation in
+                NEHotspotNetwork.fetchCurrent {
+                    continuation.resume(returning: $0)
+                }
+            }
+
+        guard !Task.isCancelled,
+              let current,
+              !current.ssid.isEmpty else {
+            return []
+        }
+
+        // signalStrength is normalized to 0...1, not measured dBm.
+        // This conversion is an approximation for display only.
+        let estimatedRSSI = Int(-100 + current.signalStrength * 70)
+
+        return [
+            WiFiNetwork(
+                ssid: current.ssid,
+                bssid: current.bssid,
+                signalStrength: estimatedRSSI,
+                channel: 0,
+                frequency: 0,
+                securityType: current.isSecure ? .unknown : .none,
+                distance: Self.estimatedDistance(fromRSSI: estimatedRSSI)
+            )
         ]
-
-
-        return networkNames.map { name, mac, signal, channel, frequency, security in
-            let calculatedDist = self.calculateDistance(from: signal)
-
-            // 2. Генерируем случайный угол для красивого распределения точек на карте
-            let randomAngle = Double.random(in: 0...360)
-
-            // 3. Вычисляем координаты для моковой сети с помощью вашего хелпера coordinateForNetwork
-            let calculatedCoordinate2D = self.coordinateForNetwork(at: calculatedDist, angle: randomAngle, from: location)
-
-            // 4. Инициализируем вашу кастомную структуру Coordinate правильным образом
-            let networkCoordinate = Coordinate(
-                latitude: calculatedCoordinate2D.latitude,
-                longitude: calculatedCoordinate2D.longitude
-            )
-
-            // 5. Собираем объект WiFiNetwork со всеми обязательными аргументами
-            return WiFiNetwork(
-                ssid: name,
-                bssid: mac,
-                signalStrength: signal,
-                channel: channel,
-                frequency: frequency,
-                securityType: security,
-                coordinate: networkCoordinate, // <-- ИСПРАВЛЕНО (передаем готовый экземпляр)
-                distance: calculatedDist       // <-- ИСПРАВЛЕНО (передаем вычисленную дистанцию)
-            )
-        }
     }
 
-    // MARK: - Math Helpers
-    private func calculateDistance(from rssi: Int) -> Double {
-        let txPower = -30
-        if rssi == 0 {
-            return -1.0
+    #endif
+
+    // MARK: - Signal Estimate
+
+    private static func estimatedDistance(fromRSSI rssi: Int) -> Double {
+        guard (-100 ... 0).contains(rssi) else {
+            return -1
         }
 
+        let txPower = -30
         let ratio = Double(txPower - rssi) / 20.0
+
         if ratio < 1.0 {
             return pow(10.0, ratio)
         }
 
-        return (0.89976) * pow(ratio, 7.7095) + 0.111
-    }
-
-    private func coordinateForNetwork(at distance: Double, angle: Double, from center: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
-        let earthRadius = 6371000.0
-        let angleRad = angle * .pi / 180.0
-
-        let latOffset = (distance * cos(angleRad)) / earthRadius * (180.0 / .pi)
-        let lonOffset = (distance * sin(angleRad)) / earthRadius * (180.0 / .pi) / cos(center.latitude * .pi / 180.0)
-
-        return CLLocationCoordinate2D(
-            latitude: center.latitude + latOffset,
-            longitude: center.longitude + lonOffset
-        )
+        return 0.89976 * pow(ratio, 7.7095) + 0.111
     }
 }
 
 // MARK: - CLLocationManagerDelegate
+
+#if os(iOS)
 extension WiFiService: CLLocationManagerDelegate {
-    func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        switch status {
-        case .authorizedWhenInUse, .authorizedAlways:
+
+    func locationManagerDidChangeAuthorization(
+        _ manager: CLLocationManager
+    ) {
+        switch manager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            finishAuthorization(true)
+
+        case .denied, .restricted:
+            finishAuthorization(false)
+
+        case .notDetermined:
             break
-        default:
-            break
+
+        @unknown default:
+            finishAuthorization(false)
         }
     }
 }
+#endif

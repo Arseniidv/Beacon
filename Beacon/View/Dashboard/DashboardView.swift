@@ -127,9 +127,7 @@ struct DashboardView: View {
                 }
             } else {
                 PrimaryButton(title: "Сканировать", icon: "antenna.radiowaves.left.and.right") {
-                    Task {
-                        await viewModel.startBluetoothScan()
-                    }
+                    viewModel.startBluetoothScan()
                 }
             }
             

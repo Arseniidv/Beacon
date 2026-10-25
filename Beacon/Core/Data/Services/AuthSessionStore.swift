@@ -24,4 +24,9 @@ final class AuthSessionStore: ObservableObject {
         repository.clearSession()
         currentUser = nil
     }
+
+    /// Перечитывает текущего пользователя — например, после смены его роли.
+    func refreshCurrentUser() {
+        currentUser = repository.loadSession()
+    }
 }

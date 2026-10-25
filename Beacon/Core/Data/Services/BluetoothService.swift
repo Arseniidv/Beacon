@@ -113,6 +113,17 @@ final class BluetoothService: NSObject, BluetoothServiceProtocol {
         return (0.89976) * pow(ratio, 7.7095) + 0.111
     }
 
+    /// Устойчивый угол (0..<360) по идентификатору периферии.
+    /// Направление на BLE-устройство недоступно, поэтому положение на карте фиксируется
+    /// детеминированно и не «прыгает» между сканированиями.
+    private func stableAngle(for key: String) -> Double {
+        var hash: UInt64 = 5381
+        for byte in key.utf8 {
+            hash = (hash &* 33) &+ UInt64(byte)
+        }
+        return Double(hash % 360)
+    }
+
     private func coordinateForDevice(at distance: Double, angle: Double, from center: CLLocationCoordinate2D) -> CLLocationCoordinate2D {
         let earthRadius = 6371000.0
         let angleRad = angle * .pi / 180.0
@@ -224,8 +235,7 @@ extension BluetoothService: CBCentralManagerDelegate {
         if let existing {
             deviceCoordinate = existing.coordinate
         } else if let currentLocation = locationManager?.location?.coordinate {
-            let angle = Double(Int.random(in: 0...360))
-            let coordinate = coordinateForDevice(at: distance, angle: angle, from: currentLocation)
+            let coordinate = coordinateForDevice(at: distance, angle: stableAngle(for: identifier), from: currentLocation)
             deviceCoordinate = Coordinate(latitude: coordinate.latitude, longitude: coordinate.longitude)
         } else {
             deviceCoordinate = Coordinate(latitude: 55.7558, longitude: 37.6173)
@@ -294,12 +304,7 @@ extension BluetoothService: CBCentralManagerDelegate {
 // MARK: - CLLocationManagerDelegate
 extension BluetoothService: CLLocationManagerDelegate {
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        switch status {
-        case .authorizedWhenInUse, .authorizedAlways:
-            break
-        default:
-            break
-        }
+        // Статус авторизации обрабатывается в запросе разрешения
     }
 }
 

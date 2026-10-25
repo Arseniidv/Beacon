@@ -1,4 +1,3 @@
-
 import Foundation
 import SwiftUI
 import Combine
@@ -109,7 +108,7 @@ final class DeviceViewModel: ObservableObject {
 
         Task {
             do {
-                let scannedDevices = try await scanNetworkUseCase.execute(subnet: subnet)
+                let scannedDevices = try await scanNetworkUseCase.execute(subnet: subnet, timeout: 2)
                 devices = scannedDevices
                 isLoading = false
             } catch {

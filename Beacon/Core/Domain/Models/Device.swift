@@ -1,11 +1,12 @@
 import Foundation
 import SwiftUI
 
-public struct Device: Identifiable, Codable, Hashable {
+public struct Device:  Identifiable, Codable, Hashable {
     public let id: UUID
     public let name: String
     public let ip: String
     public let macAddress: String
+    public let coordinate: Coordinate?
     public let status: DeviceStatus
     public let ping: Int?
     public let currentUser: String?
@@ -18,12 +19,15 @@ public struct Device: Identifiable, Codable, Hashable {
     public let processor: String?
     public let storage: String?
     public let networkAdapter: String?
+    /// Открытые TCP-порты, обнаруженные при сканировании локальной сети.
+    public let openPorts: [Int]
 
     public init(
         id: UUID = UUID(),
         name: String,
         ip: String,
         macAddress: String,
+        coordinate: Coordinate? = nil,
         status: DeviceStatus,
         ping: Int? = nil,
         currentUser: String? = nil,
@@ -35,12 +39,14 @@ public struct Device: Identifiable, Codable, Hashable {
         os: String? = nil,
         processor: String? = nil,
         storage: String? = nil,
-        networkAdapter: String? = nil
+        networkAdapter: String? = nil,
+        openPorts: [Int] = []
     ) {
         self.id = id
         self.name = name
         self.ip = ip
         self.macAddress = macAddress
+        self.coordinate = coordinate
         self.status = status
         self.ping = ping
         self.currentUser = currentUser
@@ -53,6 +59,31 @@ public struct Device: Identifiable, Codable, Hashable {
         self.processor = processor
         self.storage = storage
         self.networkAdapter = networkAdapter
+        self.openPorts = openPorts
+    }
+
+    /// Копия устройства с подменённой координатой. Остальные поля сохраняются как есть.
+    public func copying(coordinate: Coordinate?) -> Device {
+        Device(
+            id: id,
+            name: name,
+            ip: ip,
+            macAddress: macAddress,
+            coordinate: coordinate,
+            status: status,
+            ping: ping,
+            currentUser: currentUser,
+            cpuUsage: cpuUsage,
+            ramUsage: ramUsage,
+            diskUsage: diskUsage,
+            gpu: gpu,
+            uptime: uptime,
+            os: os,
+            processor: processor,
+            storage: storage,
+            networkAdapter: networkAdapter,
+            openPorts: openPorts
+        )
     }
 
     public var formattedPing: String {
@@ -76,6 +107,13 @@ public struct Device: Identifiable, Codable, Hashable {
         }
 
         return "\(hours)ч \(minutes)м"
+    }
+    enum InterfaceFilter:String,CaseIterable,Identifiable{
+        case all = "все"
+        case active = "активные"
+        case inactive = "Выключенные"
+        
+        var id:String{self.rawValue}
     }
 }
 

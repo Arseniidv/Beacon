@@ -1,27 +1,25 @@
 import Foundation
 
 final class DIContainer {
-    // 1. Возвращаем правильное имя синглтона shared
     static let shared = DIContainer()
-
-    // 2. Сетевые сервисы
+    
     private let networkService = NetworkService()
     private lazy var bluetoothService = BluetoothService()
     private lazy var wifiService = WiFiService()
 
-    // 3. Исправленные репозитории (БЕЗ ДУБЛИКАТОВ И СУФФИКСОВ Impl, строго как у вас)
     private lazy var deviceRepository = DeviceRepository(networkService: networkService)
     private lazy var bluetoothRepository = BluetoothRepository(bluetoothService: bluetoothService)
     private lazy var wifiRepository = WiFiRepository(service: wifiService)
     private lazy var authRepository = AuthRepository()
+    private lazy var googleAuthService = GoogleAuthService()
 
-    // 4. Сессия авторизации
     private(set) lazy var authSession = AuthSessionStore(repository: authRepository)
 
-    // 5. Приватный пустой инициализатор, чтобы никто не создал вторую копию контейнера
+    /// Общие настройки сканирования, редактируемые в админ-панели.
+    private(set) lazy var scanSettings = ScanSettingsStore()
+
     private init() {}
 
-    // MARK: - Фабричные методы для создания ViewModel
 
     /// Создание DashboardViewModel с автоматическим подсчетом Bluetooth
     func makeDashboardViewModel() -> DashboardViewModel {
@@ -50,9 +48,12 @@ final class DIContainer {
     func makeNetworkMapViewModel() -> NetworkMapViewModel {
         let scanBluetoothUseCase = ScanBluetoothDevicesUseCase(repository: bluetoothRepository)
         let scanWiFiUseCase = ScanWiFiUseCase(repository: wifiRepository)
+        let scanNetworkUseCase = ScanNetworkUseCase(repository: deviceRepository)
         return NetworkMapViewModel(
             scanBluetoothUseCase: scanBluetoothUseCase,
-            scanWiFiUseCase: scanWiFiUseCase
+            scanWiFiUseCase: scanWiFiUseCase,
+            scanNetworkUseCase: scanNetworkUseCase,
+            settingsStore: scanSettings
         )
     }
 
@@ -64,6 +65,10 @@ final class DIContainer {
         AuthViewModel(
             loginUseCase: LoginUseCase(repository: authRepository),
             registerUseCase: RegisterUseCase(repository: authRepository),
+            googleSignInUseCase: SignInWithGoogleUseCase(
+                authService: googleAuthService,
+                repository: authRepository
+            ),
             session: authSession
         )
     }
@@ -76,6 +81,10 @@ final class DIContainer {
     }
 
     func makeAdminPanelViewModel() -> AdminPanelViewModel {
-        AdminPanelViewModel(authRepository: authRepository)
+        AdminPanelViewModel(
+            authRepository: authRepository,
+            session: authSession,
+            settingsStore: scanSettings
+        )
     }
 }

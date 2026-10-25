@@ -35,7 +35,7 @@ struct RootView: View {
                 AuthView(viewModel: DIContainer.shared.makeAuthViewModel())
             }
         }
-        .onChange(of: session.isAuthenticated) { isAuthenticated in
+        .onChange(of: session.isAuthenticated) { _, isAuthenticated in
             if !isAuthenticated {
                 tabCoordinator.selectedTab = .overview
             }
@@ -50,7 +50,7 @@ struct TabCoordinatorView: View {
 
     var body: some View {
         TabView(selection: $coordinator.selectedTab) {
-            ForEach(AppTab.allCases, id: \.self) { tab in
+            ForEach(coordinator.availableTabs, id: \.self) { tab in
                 NavigationStack {
                     coordinator.tabView(for: tab)
                 }

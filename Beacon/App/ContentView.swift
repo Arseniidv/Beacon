@@ -36,10 +36,7 @@ struct ContentView: View {
     }
 
     #if os(macOS)
-
-    // MARK: - macOS
-
-    @ViewBuilder
+@ViewBuilder
     private var macContentView: some View {
         NavigationSplitView {
             List(selection: $coordinator.selectedTab) {

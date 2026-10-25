@@ -3,70 +3,120 @@ import Combine
 
 @MainActor
 final class AdminPanelViewModel: ObservableObject {
-    @Published var users: [UserAccount] = []
+    @Published private(set) var users: [UserAccount] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var isMaintenanceMode = false
-    @Published var isAutoScanEnabled = true
+
+    /// Текущие настройки сканирования — общие для карты и списка устройств.
+    @Published private(set) var scanSettings: ScanSettings
+    /// Текст подсети из поля ввода: может быть невалидным до исправления.
+    @Published var subnetDraft: String
+    /// Результат проверки введённой подсети.
+    @Published private(set) var isSubnetValid = true
 
     private let authRepository: AuthRepositoryProtocol
+    private let session: AuthSessionStore
+    private let settingsStore: ScanSettingsStore
 
-    init(authRepository: AuthRepositoryProtocol = AuthRepository()) {
+    init(
+        authRepository: AuthRepositoryProtocol,
+        session: AuthSessionStore,
+        settingsStore: ScanSettingsStore
+    ) {
         self.authRepository = authRepository
+        self.session = session
+        self.settingsStore = settingsStore
+        self.scanSettings = settingsStore.settings
+        self.subnetDraft = settingsStore.settings.subnet
     }
+
+    // MARK: - Пользователи
 
     func loadUsers() {
         isLoading = true
-        // Simulate loading users
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.users = self.getAllUsers()
-            self.isLoading = false
-        }
+        users = authRepository.fetchAccounts()
+        isLoading = false
     }
 
     func toggleUserRole(_ user: UserAccount) {
-        guard let index = users.firstIndex(where: { $0.id == user.id }) else { return }
+        let newRole: UserRole = user.isAdmin ? .user : .admin
 
-        let newRole = user.userRole == .admin ? "user" : "admin"
-        users[index] = UserAccount(
-            id: user.id,
-            name: user.name,
-            email: user.email,
-            role: newRole
-        )
+        // Последнего администратора нельзя понизить — иначе доступ в админку будет потерян.
+        if newRole == .user && adminCount <= 1 && user.isAdmin {
+            errorMessage = "Нельзя снять права с единственного администратора"
+            return
+        }
 
-        // Update in storage
-        updateUserRole(userId: user.id, newRole: newRole)
+        guard let updated = authRepository.updateRole(userId: user.id, role: newRole) else {
+            errorMessage = "Не удалось изменить роль пользователя"
+            return
+        }
+
+        errorMessage = nil
+
+        if let index = users.firstIndex(where: { $0.id == updated.id }) {
+            users[index] = updated
+        }
+
+        // Если админ изменил свою роль — обновляем сессию, чтобы пересчитался доступ.
+        if session.currentUser?.id == updated.id {
+            session.refreshCurrentUser()
+        }
+    }
+
+    var adminCount: Int {
+        users.filter(\.isAdmin).count
     }
 
     func toggleMaintenanceMode() {
         isMaintenanceMode.toggle()
     }
 
-    func toggleAutoScan() {
-        isAutoScanEnabled.toggle()
-    }
+    // MARK: - Настройки сканирования
 
-    private func getAllUsers() -> [UserAccount] {
-        // This would normally fetch from repository
-        // For now, return mock data including current user
-        var allUsers: [UserAccount] = []
+    func updateSubnet(_ value: String) {
+        subnetDraft = value
+        isSubnetValid = ScanSettings.isValidSubnet(value)
 
-        if let currentUser = authRepository.loadSession() {
-            allUsers.append(currentUser)
+        guard isSubnetValid else {
+            errorMessage = "Подсеть должна быть в формате 192.168.1.0/24"
+            return
         }
 
-        // Add mock users for demonstration
-        allUsers.append(contentsOf: [
-            UserAccount(name: "Иван Петров", email: "ivan@example.com", role: "user"),
-            UserAccount(name: "Мария Иванова", email: "maria@example.com", role: "user")
-        ])
-
-        return allUsers
+        errorMessage = nil
+        settingsStore.settings.subnet = value
+        syncScanSettings()
     }
 
-    private func updateUserRole(userId: UUID, newRole: String) {
-        // Implement actual role update in repository
-        // This would involve updating the stored accounts
+    func setPingTimeout(_ seconds: Double) {
+        settingsStore.settings.pingTimeoutSeconds = seconds
+        syncScanSettings()
+    }
+
+    func setAutoRefreshInterval(_ seconds: Double) {
+        settingsStore.settings.autoRefreshIntervalSeconds = seconds
+        syncScanSettings()
+    }
+
+    func setSource(_ source: ScanSource, isEnabled: Bool) {
+        switch source {
+        case .localSignal: settingsStore.settings.isLocalSignalEnabled = isEnabled
+        case .wifi: settingsStore.settings.isWiFiEnabled = isEnabled
+        case .bluetooth: settingsStore.settings.isBluetoothEnabled = isEnabled
+        }
+        syncScanSettings()
+    }
+
+    func resetScanSettings() {
+        settingsStore.reset()
+        syncScanSettings()
+        subnetDraft = settingsStore.settings.subnet
+        isSubnetValid = true
+        errorMessage = nil
+    }
+
+    private func syncScanSettings() {
+        scanSettings = settingsStore.settings
     }
 }
