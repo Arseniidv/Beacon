@@ -1,36 +1,19 @@
 import Foundation
 import Darwin
-
-/// Сканер локальной сети.
-///
-/// Адрес и маска активного IPv4-интерфейса берутся через `getifaddrs`.
-/// Каждый хост подсети проверяется ICMP-эхо (`SOCK_DGRAM` + `IPPROTO_ICMP`,
-/// работает без прав root) и TCP-пробами по типовым портам.
 final class LocalNetworkScanner: Sendable {
 
-    /// Порты, которые проверяются TCP-пробой при сканировании хоста.
     static let probePorts: [UInt16] = [22, 80, 139, 443, 445, 3389, 8080]
 
-    /// Максимум хостов, проверяемых одновременно.
     private let maxConcurrentHosts = 48
-    /// Ограничение на размер подсети в одном сканировании.
     private let maxHostsPerScan = 512
 
-    /// Результат проверки одного хоста.
     struct Host: Sendable {
         let ip: String
-        /// MAC-адрес из ARP-таблицы ядра. Пустая строка, если запись ещё не создана.
         let mac: String
         let pingMilliseconds: Int
         let openPorts: [Int]
     }
 
-    /// Сканирует подсеть.
-    /// - Parameters:
-    ///   - subnet: подсеть вида `192.168.1.0/24`. Если она невалидна или не
-    ///     содержит адрес текущего интерфейса, используется автоматически
-    ///     определённая подсеть.
-    ///   - timeout: таймаут ответа хоста в секундах.
     func scan(subnet: String?, timeout: TimeInterval) async -> [Host] {
         let targets = resolveTargets(subnet: subnet)
         guard !targets.isEmpty else { return [] }
@@ -79,8 +62,6 @@ final class LocalNetworkScanner: Sendable {
                 }
 
                 group.notify(queue: .global(qos: .userInitiated)) {
-                    // ARP-таблица читается после проб: записи создаются ядром
-                    // в момент первого обращения к хосту.
                     let arp = Self.arpTable()
                     let result = hosts
                         .map { Host(
@@ -108,7 +89,6 @@ final class LocalNetworkScanner: Sendable {
             return range.hostAddresses(limit: maxHostsPerScan)
         }
 
-        // Подсеть не задана или не совпадает с текущей сетью — считаем по маске интерфейса.
         guard let address = Self.ipToUInt32(local.ip),
               let mask = Self.ipToUInt32(local.netmask) else {
             return []
@@ -118,7 +98,6 @@ final class LocalNetworkScanner: Sendable {
             .hostAddresses(limit: maxHostsPerScan)
     }
 
-    /// Адрес и маска активного IPv4-интерфейса (`getifaddrs`).
     private static func localIPv4Interface() -> (ip: String, netmask: String)? {
         var interfaces: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&interfaces) == 0, let first = interfaces else { return nil }
@@ -167,9 +146,6 @@ final class LocalNetworkScanner: Sendable {
         return String(cString: host)
     }
 
-    // MARK: - ARP-таблица
-
-    /// Сопоставление IPv4 → MAC из ARP-таблицы ядра (`sysctl`, `NET_RT_FLAGS`).
     private static func arpTable() -> [String: String] {
         var mib: [Int32] = [CTL_NET, PF_ROUTE, 0, AF_INET, NET_RT_FLAGS, rtfLLInfo]
         var size = 0
@@ -205,8 +181,6 @@ final class LocalNetworkScanner: Sendable {
         length: Int
     ) -> (ip: String, mac: String)? {
         guard let base = raw.baseAddress else { return nil }
-
-        // После rt_msghdr идут sockaddr-структуры: RTA_DST, RTA_GATEWAY, RTA_NETMASK.
         var cursor = offset + MemoryLayout<RoutingMessageHeader>.size
         let end = offset + length
         var addresses: [UnsafeRawPointer] = []
@@ -238,10 +212,7 @@ final class LocalNetworkScanner: Sendable {
         return (ip, bytes.map { String(format: "%02x", $0) }.joined(separator: ":"))
     }
 
-    // MARK: - ICMP
-
-    /// Отправляет ICMP-эхо и возвращает время отклика в миллисекундах.
-    private func icmpPing(host: String, timeout: TimeInterval) -> Int? {
+   private func icmpPing(host: String, timeout: TimeInterval) -> Int? {
         let descriptor = socket(AF_INET, SOCK_DGRAM, IPPROTO_ICMP)
         guard descriptor >= 0 else { return nil }
         defer { close(descriptor) }
@@ -412,13 +383,8 @@ final class LocalNetworkScanner: Sendable {
 
 // MARK: - Таблица маршрутизации
 
-/// `RTF_LLINFO` из `<net/route.h>`: запись, созданная канальным уровнем (ARP).
 private let rtfLLInfo: Int32 = 0x400
 
-/// `struct rt_msghdr` из `<net/route.h>`.
-///
-/// Тип не импортируется в Swift, поэтому раскладка повторена полями один в один:
-/// 36 байт заголовка + 56 байт `rt_metrics`, итого 92 байта.
 private struct RoutingMessageHeader {
     var rtm_msglen: UInt16
     var rtm_version: UInt8

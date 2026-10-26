@@ -100,6 +100,14 @@ struct DashboardView: View {
                             .font(AppTypography.body)
                             .foregroundStyle(AppColors.textSecondary)
                     }
+                    //Реализация демонстрации Wi-fi
+                    HStack(spacing: AppSpacing.xs){
+                        Image(systemName: "dot.radiowaves.forward")
+                        Text("WIFI")
+                            .font(AppTypography.bodyStrong)
+                            .foregroundStyle(AppColors.textPrimary)
+                        Text("Wi-Fi\(viewModel.wifiCount)")
+                    }
                 }
                 
                 Spacer()

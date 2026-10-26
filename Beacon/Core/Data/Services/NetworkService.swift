@@ -1,22 +1,10 @@
 import Foundation
 import Darwin
 
-/// Работа с устройствами локальной сети.
-///
-///
-/// Данные не хранятся в виде готового списка: устройства обнаруживаются
-/// сканированием подсети через `LocalNetworkScanner` и кэшируются между вызовами.
 final class NetworkService: NetworkServiceProtocol {
-
     private let scanner = LocalNetworkScanner()
-
-    /// Устройства, найденные последним сканированием.
     private var devices: [Device] = []
-
-    // MARK: - Получение устройств
     func fetchDevices() async throws -> [Device] {
-        // Пока список пуст, выполняем первичное сканирование,
-        // чтобы экран устройств не открывался пустым.
         if devices.isEmpty {
             _ = try? await scanNetwork(subnet: ScanSettings.defaultSubnet, timeout: 1)
         }
@@ -34,7 +22,6 @@ final class NetworkService: NetworkServiceProtocol {
         return device
     }
 
-    // MARK: - Редактирование устройства
     func updateDevice(_device device: Device) async throws {
         guard let index = devices.firstIndex(where: { $0.id == device.id }) else {
             throw NSError(
@@ -46,7 +33,6 @@ final class NetworkService: NetworkServiceProtocol {
         devices[index] = device
     }
 
-    // MARK: - Удаление устройства
     func deleteDevice(id: UUID) async throws {
         guard let index = devices.firstIndex(where: { $0.id == id }) else {
             throw NSError(
@@ -57,9 +43,6 @@ final class NetworkService: NetworkServiceProtocol {
         }
         devices.remove(at: index)
     }
-
-    // MARK: - Сканирование сети
-    /// Сканирует подсеть: ICMP-эхо и TCP-пробы по типовым портам каждого хоста.
     func scanNetwork(subnet: String, timeout: Double) async throws -> [Device] {
         let hosts = await scanner.scan(subnet: subnet, timeout: timeout)
         let respondedIPs = Set(hosts.map(\.ip))
@@ -71,31 +54,55 @@ final class NetworkService: NetworkServiceProtocol {
                 id: existing?.id ?? UUID(),
                 name: existing?.name ?? "Хост \(host.ip)",
                 ip: host.ip,
-                macAddress: host.mac.isEmpty ? (existing?.macAddress ?? "") : host.mac,
+                macAddress: host.mac.isEmpty
+                    ? (existing?.macAddress ?? "")
+                    : host.mac,
                 coordinate: existing?.coordinate,
-                status: .free,
-                ping: host.pingMilliseconds,
+                status: existing?.status ?? .free,
+                ping: host.pingMilliseconds > 0
+                    ? host.pingMilliseconds
+                    : nil,
+                currentUser: existing?.currentUser,
+                cpuUsage: existing?.cpuUsage,
+                ramUsage: existing?.ramUsage,
+                diskUsage: existing?.diskUsage,
+                gpu: existing?.gpu,
+                uptime: existing?.uptime,
+                os: existing?.os,
+                processor: existing?.processor,
+                storage: existing?.storage,
+                networkAdapter: existing?.networkAdapter,
                 openPorts: host.openPorts
             )
         }
-
-        // Ранее найденные устройства, которые не ответили, остаются в списке как оффлайн.
+    
         for device in devices where !respondedIPs.contains(device.ip) {
-            updated.append(Device(
-                id: device.id,
-                name: device.name,
-                ip: device.ip,
-                macAddress: device.macAddress,
-                coordinate: device.coordinate,
-                status: .offline
-            ))
+            updated.append(
+                Device(
+                    id: device.id,
+                    name: device.name,
+                    ip: device.ip,
+                    macAddress: device.macAddress,
+                    coordinate: device.coordinate,
+                    status: device.status,
+                    ping: device.ping,
+                    currentUser: device.currentUser,
+                    cpuUsage: device.cpuUsage,
+                    ramUsage: device.ramUsage,
+                    diskUsage: device.diskUsage,
+                    gpu: device.gpu,
+                    uptime: device.uptime,
+                    os: device.os,
+                    processor: device.processor,
+                    storage: device.storage,
+                    networkAdapter: device.networkAdapter,
+                    openPorts: device.openPorts
+                )
+            )
         }
-
         devices = updated
         return devices
     }
-
-    // MARK: - Действия с устройствами
     func reserveDevice(_ device: Device) async throws {
         try await Task.sleep(nanoseconds: 500_000_000)
     }

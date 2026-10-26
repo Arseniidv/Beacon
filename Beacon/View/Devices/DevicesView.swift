@@ -79,7 +79,46 @@ struct DevicesView: View {
             }
         }
     }
+    
+    private var scanningSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.sm) {
+            Button {
+                viewModel.scanNetwork()
+            } label: {
+                HStack(spacing: AppSpacing.sm) {
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .tint(AppColors.textPrimary)
+                    } else {
+                        Image(systemName: "network")
+                    }
 
+                    Text(
+                        viewModel.isLoading
+                            ? "Сканирование сети..."
+                            : "Сканировать сеть"
+                    )
+                    .font(AppTypography.bodyStrong)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, AppSpacing.md)
+                .foregroundStyle(AppColors.textPrimary)
+                .background(AppColors.accentPrimary)
+                .clipShape(
+                    RoundedRectangle(cornerRadius: AppRadius.md)
+                )
+            }
+            .disabled(viewModel.isLoading)
+
+            if let errorMessage = viewModel.errorMessage {
+                Text(errorMessage)
+                    .font(AppTypography.body)
+                    .foregroundStyle(AppColors.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+    
     private var emptyState: some View {
         VStack(spacing: AppSpacing.md) {
             Image(systemName: "exclamationmark.triangle")

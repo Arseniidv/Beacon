@@ -18,18 +18,26 @@ final class DIContainer {
     /// Общие настройки сканирования, редактируемые в админ-панели.
     private(set) lazy var scanSettings = ScanSettingsStore()
 
+    private lazy var bluetoothManager = BluetoothDeviceManager()
+
     private init() {}
 
 
     /// Создание DashboardViewModel с автоматическим подсчетом Bluetooth
     func makeDashboardViewModel() -> DashboardViewModel {
         DashboardViewModel(
-            fetchDevicesUseCase: FetchDevicesUseCase(repository: deviceRepository),
-            scanBluetoothUseCase: ScanBluetoothDevicesUseCase(repository: bluetoothRepository),
-            bluetoothManager: BluetoothDeviceManager()
+            fetchDevicesUseCase: FetchDevicesUseCase(
+                repository: deviceRepository
+            ),
+            scanBluetoothUseCase: ScanBluetoothDevicesUseCase(
+                repository: bluetoothRepository
+            ),
+            scanWiFiUseCase: ScanWiFiUseCase(
+                repository: wifiRepository
+            ),
+            bluetoothManager: bluetoothManager
         )
     }
-
     func makeDeviceViewModel() -> DeviceViewModel {
         let fetchDevicesUseCase = FetchDevicesUseCase(repository: deviceRepository)
         let scanNetworkUseCase = ScanNetworkUseCase(repository: deviceRepository)

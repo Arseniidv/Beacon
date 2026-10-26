@@ -44,7 +44,7 @@ final class DeviceViewModel: ObservableObject {
     @Published var selectedFilter: DeviceFilter = .all
     @Published var selectedSort: DeviceSortOption = .name
     @Published var isLoading = false
-
+    @Published var errorMessage:String? = nil
     // MARK: - Init
 
     init(
@@ -90,19 +90,27 @@ final class DeviceViewModel: ObservableObject {
     // MARK: - Actions
 
     func loadDevices() {
+        guard !isLoading else {
+            return
+        }
+
         isLoading = true
+        errorMessage = nil
 
         Task {
+            defer {
+                isLoading = false
+            }
+
             do {
                 let fetchedDevices = try await fetchDevicesUseCase.execute()
                 devices = fetchedDevices
-                isLoading = false
             } catch {
-                isLoading = false
+                errorMessage = "Не удалось загрузить устройства: \(error.localizedDescription)"
             }
         }
     }
-
+    
     func scanNetwork(subnet: String = "192.168.1.0/24") {
         isLoading = true
 

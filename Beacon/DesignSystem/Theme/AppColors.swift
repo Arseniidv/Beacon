@@ -73,4 +73,5 @@ enum AppColors {
     static let statusWarning      = Color.dynamic(light: 0xD97706, dark: 0xF59E0B)
     static let statusDanger       = Color.dynamic(light: 0xDC2626, dark: 0xEF4444)
     static let statusOffline      = Color.dynamic(light: 0x64748B, dark: 0x7C8AA5)
+    static let accentOrange = Color(red:1.0,green: 0.58, blue: 0.8)
 }
