@@ -12,6 +12,7 @@ final class DIContainer {
     private lazy var wifiRepository = WiFiRepository(service: wifiService)
     private lazy var authRepository = AuthRepository()
     private lazy var googleAuthService = GoogleAuthService()
+    private lazy var networkProfileRepository = NetworkProfileRepository()
 
     private(set) lazy var authSession = AuthSessionStore(repository: authRepository)
 
@@ -92,7 +93,12 @@ final class DIContainer {
         AdminPanelViewModel(
             authRepository: authRepository,
             session: authSession,
-            settingsStore: scanSettings
+            settingsStore: scanSettings,
+            networkProfileRepository: networkProfileRepository
         )
+    }
+
+    func makeNetworkProfileViewModel() -> NetworkProfileViewModel {
+        NetworkProfileViewModel(repository: networkProfileRepository)
     }
 }

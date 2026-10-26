@@ -1,21 +1,22 @@
-
 import SwiftUI
+
+
 
 @available(iOS 17.0, macOS 14.0, *)
 struct ContentView: View {
-
     @StateObject private var coordinator = TabCoordinator()
-
+@AppStorage("isDarkModeOn")
+    private var isDarkModeOn = false
     var body: some View {
-        #if os(macOS)
-        macContentView
-        #else
-        iosContentView
-        #endif
+        Group {
+            #if os(macOS)
+            macContentView
+            #else
+            iosContentView
+            #endif
+        }
+        .preferredColorScheme(isDarkModeOn ? .dark : .light)
     }
-
-    // MARK: - iOS
-
     @ViewBuilder
     private var iosContentView: some View {
         TabView(selection: $coordinator.selectedTab) {
@@ -27,7 +28,10 @@ struct ContentView: View {
                         }
                 }
                 .tabItem {
-                    Label(tab.rawValue, systemImage: tab.icon)
+                    Label(
+                        tab.rawValue,
+                        systemImage: tab.icon
+                    )
                 }
                 .tag(tab)
             }
@@ -35,14 +39,20 @@ struct ContentView: View {
         .tint(AppColors.accentPrimary)
     }
 
+    // MARK: - macOS Content
+
     #if os(macOS)
-@ViewBuilder
+
+    @ViewBuilder
     private var macContentView: some View {
         NavigationSplitView {
             List(selection: $coordinator.selectedTab) {
                 ForEach(coordinator.availableTabs, id: \.self) { tab in
-                    Label(tab.rawValue, systemImage: tab.icon)
-                        .tag(tab)
+                    Label(
+                        tab.rawValue,
+                        systemImage: tab.icon
+                    )
+                    .tag(tab)
                 }
             }
             .listStyle(.sidebar)
@@ -68,9 +78,6 @@ struct ContentView: View {
 // MARK: - Preview
 
 #Preview {
-    if #available(iOS 17.0, *) {
-        ContentView()
-    } else {
-            Text("Для корректной работы необходима минимум IOS 17")
-    }
+    ContentView()
 }
+

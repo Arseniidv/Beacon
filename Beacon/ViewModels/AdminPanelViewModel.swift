@@ -18,17 +18,31 @@ final class AdminPanelViewModel: ObservableObject {
     private let authRepository: AuthRepositoryProtocol
     private let session: AuthSessionStore
     private let settingsStore: ScanSettingsStore
+    private let networkProfileRepository: NetworkProfileRepositoryProtocol
+    private var cancellables = Set<AnyCancellable>()
+
+    @Published private(set) var activeNetworkProfile: NetworkProfile?
 
     init(
         authRepository: AuthRepositoryProtocol,
         session: AuthSessionStore,
-        settingsStore: ScanSettingsStore
+        settingsStore: ScanSettingsStore,
+        networkProfileRepository: NetworkProfileRepositoryProtocol
     ) {
         self.authRepository = authRepository
         self.session = session
         self.settingsStore = settingsStore
+        self.networkProfileRepository = networkProfileRepository
         self.scanSettings = settingsStore.settings
         self.subnetDraft = settingsStore.settings.subnet
+
+        setupBindings()
+    }
+
+    private func setupBindings() {
+        networkProfileRepository.activeProfile
+            .receive(on: RunLoop.main)
+            .assign(to: &$activeNetworkProfile)
     }
 
     // MARK: - Пользователи

@@ -7,14 +7,49 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B56CD02E308FBC5F0085AFFE /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B56CD02D308FBC5F0085AFFE /* WidgetKit.framework */; };
+		B56CD030308FBC5F0085AFFE /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B56CD02F308FBC5F0085AFFE /* SwiftUI.framework */; };
+		B56CD041308FBC600085AFFE /* BeaconNetWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B56CD02B308FBC5F0085AFFE /* BeaconNetWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		B5C91C42307CD313009FB1AB /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = B5C91C41307CD313009FB1AB /* GoogleSignIn */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		B56CD03F308FBC600085AFFE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B5C91C22307CD313009FB1AB /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B56CD02A308FBC5F0085AFFE;
+			remoteInfo = BeaconNetWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B56CD046308FBC600085AFFE /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			dstPath = "";
+			dstSubfolder = PlugIns;
+			files = (
+				B56CD041308FBC600085AFFE /* BeaconNetWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		B56CD02B308FBC5F0085AFFE /* BeaconNetWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = BeaconNetWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B56CD02D308FBC5F0085AFFE /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		B56CD02F308FBC5F0085AFFE /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		B5C91C2A307CD313009FB1AB /* Beacon.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Beacon.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B56CD045308FBC600085AFFE /* Exceptions for "BeaconNetWidget" folder in "BeaconNetWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = B56CD02A308FBC5F0085AFFE /* BeaconNetWidgetExtension */;
+		};
 		B5A16C59308AA90000369998 /* Exceptions for "Beacon" folder in "Beacon" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -25,6 +60,14 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		B56CD031308FBC5F0085AFFE /* BeaconNetWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B56CD045308FBC600085AFFE /* Exceptions for "BeaconNetWidget" folder in "BeaconNetWidgetExtension" target */,
+			);
+			path = BeaconNetWidget;
+			sourceTree = "<group>";
+		};
 		B5C91C2C307CD313009FB1AB /* Beacon */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -36,6 +79,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		B56CD028308FBC5F0085AFFE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+				B56CD030308FBC5F0085AFFE /* SwiftUI.framework in Frameworks */,
+				B56CD02E308FBC5F0085AFFE /* WidgetKit.framework in Frameworks */,
+			);
+		};
 		B5C91C27307CD313009FB1AB /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
@@ -45,10 +95,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		B56CD02C308FBC5F0085AFFE /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				B56CD02D308FBC5F0085AFFE /* WidgetKit.framework */,
+				B56CD02F308FBC5F0085AFFE /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		B5C91C21307CD313009FB1AB = {
 			isa = PBXGroup;
 			children = (
 				B5C91C2C307CD313009FB1AB /* Beacon */,
+				B56CD031308FBC5F0085AFFE /* BeaconNetWidget */,
+				B56CD02C308FBC5F0085AFFE /* Frameworks */,
 				B5C91C2B307CD313009FB1AB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -57,6 +118,7 @@
 			isa = PBXGroup;
 			children = (
 				B5C91C2A307CD313009FB1AB /* Beacon.app */,
+				B56CD02B308FBC5F0085AFFE /* BeaconNetWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -64,6 +126,24 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		B56CD02A308FBC5F0085AFFE /* BeaconNetWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B56CD042308FBC600085AFFE /* Build configuration list for PBXNativeTarget "BeaconNetWidgetExtension" */;
+			buildPhases = (
+				B56CD027308FBC5F0085AFFE /* Sources */,
+				B56CD028308FBC5F0085AFFE /* Frameworks */,
+				B56CD029308FBC5F0085AFFE /* Resources */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				B56CD031308FBC5F0085AFFE /* BeaconNetWidget */,
+			);
+			name = BeaconNetWidgetExtension;
+			productName = BeaconNetWidgetExtension;
+			productReference = B56CD02B308FBC5F0085AFFE /* BeaconNetWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		B5C91C29307CD313009FB1AB /* Beacon */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = B5C91C35307CD314009FB1AB /* Build configuration list for PBXNativeTarget "Beacon" */;
@@ -72,8 +152,12 @@
 				B5C91C27307CD313009FB1AB /* Frameworks */,
 				B5C91C28307CD313009FB1AB /* Resources */,
 				B5C91C50307CD313009FB1AB /* Google Sign-In URL scheme */,
+				B56CD046308FBC600085AFFE /* Embed Foundation Extensions */,
 			);
 			buildRules = (
+			);
+			dependencies = (
+				B56CD040308FBC600085AFFE /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				B5C91C2C307CD313009FB1AB /* Beacon */,
@@ -93,9 +177,12 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2700;
+				LastSwiftUpdateCheck = 2710;
 				LastUpgradeCheck = 2710;
 				TargetAttributes = {
+					B56CD02A308FBC5F0085AFFE = {
+						CreatedOnToolsVersion = 27.1;
+					};
 					B5C91C29307CD313009FB1AB = {
 						CreatedOnToolsVersion = 27.0;
 					};
@@ -119,11 +206,17 @@
 			projectRoot = "";
 			targets = (
 				B5C91C29307CD313009FB1AB /* Beacon */,
+				B56CD02A308FBC5F0085AFFE /* BeaconNetWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		B56CD029308FBC5F0085AFFE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			files = (
+			);
+		};
 		B5C91C28307CD313009FB1AB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			files = (
@@ -148,6 +241,11 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		B56CD027308FBC5F0085AFFE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
 		B5C91C26307CD313009FB1AB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
@@ -155,7 +253,80 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		B56CD040308FBC600085AFFE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B56CD02A308FBC5F0085AFFE /* BeaconNetWidgetExtension */;
+			targetProxy = B56CD03F308FBC600085AFFE /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
+		B56CD043308FBC600085AFFE /* Debug configuration for PBXNativeTarget "BeaconNetWidgetExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QJZ6Q2G3QQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BeaconNetWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BeaconNetWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arseniidv.Beacon.BeaconNetWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B56CD044308FBC600085AFFE /* Release configuration for PBXNativeTarget "BeaconNetWidgetExtension" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = QJZ6Q2G3QQ;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = BeaconNetWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = BeaconNetWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arseniidv.Beacon.BeaconNetWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		B5C91C33307CD314009FB1AB /* Debug configuration for PBXProject "Beacon" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -385,6 +556,14 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		B56CD042308FBC600085AFFE /* Build configuration list for PBXNativeTarget "BeaconNetWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B56CD043308FBC600085AFFE /* Debug configuration for PBXNativeTarget "BeaconNetWidgetExtension" */,
+				B56CD044308FBC600085AFFE /* Release configuration for PBXNativeTarget "BeaconNetWidgetExtension" */,
+			);
+			defaultConfigurationName = Release;
+		};
 		B5C91C25307CD313009FB1AB /* Build configuration list for PBXProject "Beacon" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

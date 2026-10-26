@@ -27,31 +27,19 @@ struct UserData {
 
 @MainActor
 final class ProfileViewModel: ObservableObject {
-
-    // MARK: - AppStorage & Published Properties
-    @AppStorage("isDarkModeOn") var isDarkModeOn = true
-
+    @AppStorage("isDarkModeOn") var isDarkModeOn = false
     @Published var user: UserData
     @Published var isLoading = false
     @Published private(set) var bluetoothDevices: [BluetoothDevice] = []
 
-    // MARK: - Private Dependencies & Combine
     private let bluetoothService: BluetoothServiceProtocol
     private let session: AuthSessionStore
-
-    // ИСПРАВЛЕНИЕ: Только ОДНО объявление переменной для подписок Combine
     private var cancellables = Set<AnyCancellable>()
-
-    // MARK: - Unified Initialization
-    // ИСПРАВЛЕНИЕ: Единственный общий конструктор, который корректно принимает обе зависимости
+    
     init(session: AuthSessionStore, bluetoothService: BluetoothServiceProtocol) {
         self.session = session
         self.bluetoothService = bluetoothService
-
-        // Сначала настраиваем данные пользователя на основе текущей сессии
         self.user = Self.userData(from: session.currentUser)
-
-        // Затем безопасно запускаем подписки на обновления потоков данных
         setupSubscriptions()
     }
 

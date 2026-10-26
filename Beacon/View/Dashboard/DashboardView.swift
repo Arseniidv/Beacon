@@ -2,6 +2,7 @@ import SwiftUI
 
 struct DashboardView: View {
     @StateObject private var viewModel: DashboardViewModel
+    @StateObject private var networkProfileViewModel = DIContainer.shared.makeNetworkProfileViewModel()
 
     init(viewModel: DashboardViewModel = DIContainer.shared.makeDashboardViewModel()) {
         self._viewModel = StateObject(wrappedValue: viewModel)
@@ -11,6 +12,8 @@ struct DashboardView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: AppSpacing.lg) {
                 headerSection
+
+                networkOverviewSection
 
                 summaryCardsSection
 
@@ -31,11 +34,148 @@ struct DashboardView: View {
             Text("Сетевые ресурсы")
                 .font(AppTypography.screenTitle)
                 .foregroundStyle(AppColors.textPrimary)
-            
+
             Text("Поиск и мониторинг компьютеров в локальной сети")
                 .font(AppTypography.body)
                 .foregroundStyle(AppColors.textSecondary)
         }
+    }
+
+    private var networkOverviewSection: some View {
+        VStack(alignment: .leading, spacing: AppSpacing.md) {
+            HStack {
+                Text("Обзор сети")
+                    .font(AppTypography.sectionTitle)
+                    .foregroundStyle(AppColors.textPrimary)
+
+                Spacer()
+
+                if let activeProfile = networkProfileViewModel.activeProfile {
+                    NavigationLink {
+                        NetworkProfilesView()
+                    } label: {
+                        HStack(spacing: AppSpacing.xs) {
+                            Text(activeProfile.name)
+                                .font(AppTypography.bodyStrong)
+                                .foregroundStyle(AppColors.accentPrimary)
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                    }
+                } else {
+                    NavigationLink {
+                        NetworkProfilesView()
+                    } label: {
+                        HStack(spacing: AppSpacing.xs) {
+                            Text("Выбрать профиль")
+                                .font(AppTypography.bodyStrong)
+                                .foregroundStyle(AppColors.accentPrimary)
+
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(AppColors.textTertiary)
+                        }
+                    }
+                }
+            }
+
+            if let activeProfile = networkProfileViewModel.activeProfile {
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    HStack(spacing: AppSpacing.sm) {
+                        Image(systemName: "network")
+                            .foregroundStyle(AppColors.accentPrimary)
+
+                        Text("Тип сети:")
+                            .font(AppTypography.body)
+                            .foregroundStyle(AppColors.textSecondary)
+
+                        Text(activeProfile.networkType.rawValue)
+                            .font(AppTypography.bodyStrong)
+                            .foregroundStyle(AppColors.textPrimary)
+                    }
+
+                    if let ipv4 = activeProfile.ipv4Config {
+                        HStack(spacing: AppSpacing.sm) {
+                            Image(systemName: "number")
+                                .foregroundStyle(AppColors.accentPrimary)
+
+                            Text("Подсеть:")
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.textSecondary)
+
+                            Text(ipv4.subnet)
+                                .font(AppTypography.bodyStrong)
+                                .foregroundStyle(AppColors.textPrimary)
+                        }
+
+                        if let gateway = ipv4.gateway {
+                            HStack(spacing: AppSpacing.sm) {
+                                Image(systemName: "network")
+                                    .foregroundStyle(AppColors.accentPrimary)
+
+                                Text("Шлюз:")
+                                    .font(AppTypography.body)
+                                    .foregroundStyle(AppColors.textSecondary)
+
+                                Text(gateway)
+                                    .font(AppTypography.bodyStrong)
+                                    .foregroundStyle(AppColors.textPrimary)
+                            }
+                        }
+                    }
+
+                    if !activeProfile.segments.isEmpty {
+                        HStack(spacing: AppSpacing.sm) {
+                            Image(systemName: "square.grid.2x2")
+                                .foregroundStyle(AppColors.accentPrimary)
+
+                            Text("Сегментов:")
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.textSecondary)
+
+                            Text("\(activeProfile.segments.count)")
+                                .font(AppTypography.bodyStrong)
+                                .foregroundStyle(AppColors.textPrimary)
+                        }
+                    }
+
+                    if !activeProfile.infrastructure.isEmpty {
+                        HStack(spacing: AppSpacing.sm) {
+                            Image(systemName: "server.rack")
+                                .foregroundStyle(AppColors.accentPrimary)
+
+                            Text("Инфраструктуры:")
+                                .font(AppTypography.body)
+                                .foregroundStyle(AppColors.textSecondary)
+
+                            Text("\(activeProfile.infrastructure.count)")
+                                .font(AppTypography.bodyStrong)
+                                .foregroundStyle(AppColors.textPrimary)
+                        }
+                    }
+                }
+            } else {
+                VStack(alignment: .leading, spacing: AppSpacing.sm) {
+                    HStack(spacing: AppSpacing.sm) {
+                        Image(systemName: "exclamationmark.triangle")
+                            .foregroundStyle(AppColors.statusWarning)
+
+                        Text("Активный профиль не выбран")
+                            .font(AppTypography.bodyStrong)
+                            .foregroundStyle(AppColors.textPrimary)
+                    }
+
+                    Text("Выберите профиль сети для просмотра конфигурации")
+                        .font(AppTypography.body)
+                        .foregroundStyle(AppColors.textSecondary)
+                }
+            }
+        }
+        .padding(AppSpacing.cardPadding)
+        .background(AppColors.backgroundCard)
+        .cornerRadius(AppRadius.lg)
     }
     
     private var summaryCardsSection: some View {
